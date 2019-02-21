@@ -19,7 +19,7 @@ problems:
         -ensure notes do not end until that note is unfretted, muted or fret is changed in the song, and not before
 """
 import numpy
-from numpy import pi
+from collections import Mapping
 import matplotlib.pyplot as plt
 from sys import argv
 import json
@@ -36,7 +36,7 @@ pp = pprint.PrettyPrinter(indent=4)
 
 #end setup
 
-class Sequence(dict):
+class Sequence():
     resolution = 1000
     def __init__(self, notes):
         """initialise a wave sequence based upon a iterable sequence of Note instances"""
@@ -48,7 +48,7 @@ class Sequence(dict):
         #popualate the dict with time points as the keys
         self.fromkeys(numpy.arange(self.start, self.end, 0.5), [])
         for note in notes:
-            assert isinstance(note, Note) "sequence contains members which are not an instance of 'Note'"
+            assert isinstance(note, Note), "sequence contains members which are not an instance of 'Note'"
             #assumes that the bars are counted in 'eighth notes' and so for a 4-beat bar there are are 8 notes, hence the '0.5' interval
             for beat in numpy.arange(note.start, note.end, 0.5):
                 self[beat].append(note.frequency)
@@ -81,24 +81,25 @@ class Sequence(dict):
         return (start, end, min_freq, max_freq)
 
     def plot_graph(self):
-        #make sure that required function has been fired upon instance
-        assert bool(self.x & self.y), "Sequence.plot_graph() has been called but Sequence.plot_axes has not been called on the instance."
+        #call method to calculate axes
+        self._plot_axes()
         #perform necessary setup functions for graph
         self._calibrate_fig()
-        for note in self:
-            #create a range for a beat of 8 bars with 100 plotted points per second
-            x0 = numpy.arange(note.start, note.end, 0.001)
-            w = wave.waveGen(x0)
-            #plot a white line with the combined frequencies
-            plt.plot(x0, w, color="#FFFFFF")
+        plt.plot(self.x, self.y, color=gen_colour())
 
-    def plot_axes(self):
-        self.x = numpy.arange(self.start, self.end, 0.01)
-        for interval in self:
-            ys = numpy.arange(self[interval], self[interval + 1], 0.01§
-            #index each individual frequency
-            for freq in self[interval]:
-                ys.append()
+    def _plot_axes(self):
+        self.x = numpy.arange(self.start, self.end, 0.001)
+        self.y = numpy.zeros(self.x.shape)
+        for note in self:
+            if (len(self[note]) < 1):
+                print("beat {} of the sequence has no notes attached to it")
+            x0 = numpy.arange(note.start, note.start + 0.5, 0.001)
+            w = sineWaveZero( note.frequency, x0 )
+            y_add = numpy.zeros(self.y.shape)
+            y_add[int(note.start * 500), int(note.end * 500)] = w
+            #add the calculated values on to self.y
+            self.y += y_add
+
 
 class Note(object):
     def __init__(self, frequency, note, start, end):
@@ -106,10 +107,10 @@ class Note(object):
         self.colour = gen_colour()
 
     def waveGen(self, xRange):
-    """function to calculate all y values for a given input range of x-coordinates: (   y = f(x) = sin( xRange[i]*t )    )
-    frequency -> cycles per second of a wave
-    duration -> is the time duration of the entire input wave (end point relative to t = 0). Value will be a number as a multiple of t_per_beat, but must be a multiple of 0.25
-    xRange is an input of values to be plotted on the x-axis """
+        """function to calculate all y values for a given input range of x-coordinates: (   y = f(x) = sin( xRange[i]*t )    )
+        frequency -> cycles per second of a wave
+        duration -> is the time duration of the entire input wave (end point relative to t = 0). Value will be a number as a multiple of t_per_beat, but must be a multiple of 0.25
+        xRange is an input of values to be plotted on the x-axis """
         #instantiate list for return
         a = []
         assert self.frequency % 1 == 0, "Frequency argument for waveGen is not an integer value"
@@ -120,16 +121,18 @@ class Note(object):
         return a
 
 def unwrap_json(json_obj):
-    self.notes = []
+    notes = []
     #perform sanity checks on the input argument to the system
-    assert json_data.__class__.__name__ == "list", "the data into the sequence is not of the correct type, it is of type '{}' needs to be of type 'list'".format(json_data.__class__.__name__)
+    assert isinstance(json_obj, list), "the data into the sequence is not of the correct type, it is of type '{}' needs to be of type 'list'".format(json_data.__class__.__name__)
     intended_keys = [u"frequency", u"note", u"sections"]
-    for key in intended_keys:
-        assert key in list(d.viewkeys()), "list argument to NoteFactory does not have the correct keys.\nIt has: {}, but it should have: {}".format(list(d.viewkeys()), intended_keys)
+    for record in json_obj:
+        for key in intended_keys:
+            assert key in record, "list argument to NoteFactory does not have the correct keys.\nIt has: {}, but it should have: {}".format(record.keys(), intended_keys)
     #unwrap raw data parsed from JSON
-    for payload in json_data:
-        for interval in payload.sections:
-            notes.append(Note(payload.frequency, payload.note, interval["start"], interval["end"]))
+    for payload in json_obj:
+        print(payload.keys())
+        for interval in payload["sections"]:
+            notes.append(Note(payload["frequency"], payload["note"], interval["start"], interval["end"]))
     return notes
 
 def sineWaveZero(w,t):
@@ -157,7 +160,6 @@ pp.pprint(data_in)
 notes = unwrap_json(data_in)
 #set up an instance with which to draw the graph
 riff = Sequence(notes)
-riff.
 riff.plot_graph()
 
 #display deduced total sequence information
