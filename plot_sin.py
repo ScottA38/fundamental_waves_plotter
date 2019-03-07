@@ -19,12 +19,13 @@ problems:
         -ensure notes do not end until that note is unfretted, muted or fret is changed in the song, and not before
 """
 import numpy
+from numpy import pi
+import collections
 from collections import Mapping
 import matplotlib.pyplot as plt
 from sys import argv
 import json
 import pprint
-import collections
 import math
 from random import choice
 
@@ -36,7 +37,7 @@ pp = pprint.PrettyPrinter(indent=4)
 
 #end setup
 
-class Sequence():
+class Sequence(collections.defaultdict):
     resolution = 1000
     def __init__(self, notes):
         """initialise a wave sequence based upon a iterable sequence of Note instances"""
@@ -45,12 +46,12 @@ class Sequence():
         assert self.end != -1, "Sequence.__init__() has failed"
         assert float(self.min_freq) != float('inf'), "Sequence.__init__() has failed, min_freq: {}".format(self.min_freq)
         assert self.max_freq != -1, "Sequence.__init__() has failed"
-        #popualate the dict with time points as the keys
-        self.fromkeys(numpy.arange(self.start, self.end, 0.5), [])
         for note in notes:
             assert isinstance(note, Note), "sequence contains members which are not an instance of 'Note'"
             #assumes that the bars are counted in 'eighth notes' and so for a 4-beat bar there are are 8 notes, hence the '0.5' interval
             for beat in numpy.arange(note.start, note.end, 0.5):
+                if not beat in self:
+                    self.update({beat:[]})
                 self[beat].append(note.frequency)
 
     def _calibrate_fig(self):
@@ -90,15 +91,24 @@ class Sequence():
     def _plot_axes(self):
         self.x = numpy.arange(self.start, self.end, 0.001)
         self.y = numpy.zeros(self.x.shape)
-        for note in self:
-            if (len(self[note]) < 1):
+        for notes in self.values():
+            if (len(notes) < 1):
                 print("beat {} of the sequence has no notes attached to it")
-            x0 = numpy.arange(note.start, note.start + 0.5, 0.001)
-            w = sineWaveZero( note.frequency, x0 )
-            y_add = numpy.zeros(self.y.shape)
-            y_add[int(note.start * 500), int(note.end * 500)] = w
-            #add the calculated values on to self.y
-            self.y += y_add
+            for note in notes:
+                print("note is {}".format(note))
+                x0 = numpy.arange(note.start, note.end, 0.001)
+                w = sineWaveZero( note.frequency, x0 )
+                y_add = numpy.zeros(self.y.shape)
+                y_add[find_index(y_add, note.start), find_index(y_add, note.end)] = w
+                #add the calculated values on to self.y
+                self.y += y_add
+
+    @staticmethod
+    def fromkeys(keys, value):
+        gend = {}
+        for key in keys:
+            gend.update({key: value})
+        return gend
 
 
 class Note(object):
@@ -147,6 +157,12 @@ def gen_colour():
         new_value = choice(vals)
         val_list.append( hex(new_value)[2:] )
     return ("#" + "".join(val_list))
+
+def find_index(array, value):
+    """function to determine the closest possible numerical index to a specified value. N.B: this is obviously
+    only going to work with floats or ints"""
+    return (np.abs(array - value)).argmin()
+
 
 assert json_in.endswith(".json"), "The input file to the program does not end with a '.json' file extension"
 
